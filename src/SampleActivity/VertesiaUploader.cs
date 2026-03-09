@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -201,16 +202,53 @@ namespace SampleActivity
             if (mapping == null || results == null)
                 return;
 
+            // Group mapping entries by document type, parsed from "DocumentType.FieldName" format.
+            var grouped = new Dictionary<string, List<KeyValuePair<string, string>>>(StringComparer.OrdinalIgnoreCase);
             foreach (var entry in mapping)
             {
-                if (results.TryGetValue(entry.Key, out var value))
+                var dotIndex = entry.Value.IndexOf('.');
+                if (dotIndex <= 0)
                 {
-                    childDocument.AddCustomValue(entry.Value, value, true);
-                    Log.Debug($"Mapped result field '{entry.Key}' to custom value '{entry.Value}': {value}");
+                    Log.Warn($"Mapping value '{entry.Value}' is not in 'DocumentType.FieldName' format; skipping.");
+                    continue;
                 }
-                else
+
+                var docTypeName = entry.Value.Substring(0, dotIndex);
+                if (!grouped.TryGetValue(docTypeName, out var list))
                 {
-                    Log.Warn($"Result field '{entry.Key}' not found in interaction response. Custom value '{entry.Value}' was not set.");
+                    list = new List<KeyValuePair<string, string>>();
+                    grouped[docTypeName] = list;
+                }
+                list.Add(entry);
+            }
+
+            foreach (var group in grouped)
+            {
+                childDocument.Initialize(group.Key);
+
+                foreach (var entry in group.Value)
+                {
+                    if (!results.TryGetValue(entry.Key, out var value))
+                    {
+                        Log.Warn($"Result field '{entry.Key}' not found in interaction response. Field was not set.");
+                        continue;
+                    }
+
+                    var dotIndex = entry.Value.IndexOf('.');
+                    var fieldName = entry.Value.Substring(dotIndex + 1);
+
+                    var field = childDocument.IndexFields.FirstOrDefault(f =>
+                        string.Equals(f.FieldName, fieldName, StringComparison.OrdinalIgnoreCase));
+
+                    if (field != null)
+                    {
+                        field.FieldValue.SetText(value);
+                        Log.Debug($"Mapped result field '{entry.Key}' to index field '{fieldName}' on document type '{group.Key}': {value}");
+                    }
+                    else
+                    {
+                        Log.Warn($"Index field '{fieldName}' not found on document type '{group.Key}'. Value was not set.");
+                    }
                 }
             }
         }
