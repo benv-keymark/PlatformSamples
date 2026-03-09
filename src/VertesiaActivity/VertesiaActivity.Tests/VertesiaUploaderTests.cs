@@ -200,10 +200,10 @@ namespace VertesiaActivity.Tests
             handler.Enqueue(JsonResponse(JsonSerializer.Serialize(new { id = "object-123" })));
             // 5. Status poll → ready immediately
             handler.Enqueue(JsonResponse(JsonSerializer.Serialize(new { status = "ready" })));
-            // 6. Execute interaction
+            // 6. Execute interaction (live API uses lowercase "result" key)
             handler.Enqueue(JsonResponse(JsonSerializer.Serialize(new
             {
-                Results = new { invoice_number = "INV-001", total_amount = "500.00" }
+                result = new { invoice_number = "INV-001", total_amount = "500.00" }
             })));
 
             var httpClient = new HttpClient(handler);
@@ -267,5 +267,69 @@ namespace VertesiaActivity.Tests
             {
                 Content = new StringContent(json, Encoding.UTF8, "application/json")
             };
+    }
+
+    [TestFixture]
+    public class VertesiaUploaderExecuteInteractionTests
+    {
+        private static VertesiaUploader CreateActivity(string interactionResponseJson)
+        {
+            var handler = new MockHttpMessageHandler();
+            handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(interactionResponseJson, Encoding.UTF8, "application/json")
+            });
+            return new VertesiaUploader(new HttpClient(handler));
+        }
+
+        private static Dictionary<string, string> Run(string json)
+        {
+            var activity = CreateActivity(json);
+            return activity.ExecuteInteraction("test-jwt", "https://api.vertesia.io", "interaction-id");
+        }
+
+        [Test]
+        public void ExecuteInteraction_FlatFields_ExtractedDirectly()
+        {
+            var results = Run("{\"result\":{\"invoice_number\":\"8000034\",\"total_amount\":8757.5}}");
+
+            Assert.That(results["invoice_number"], Is.EqualTo("8000034"));
+            Assert.That(results["total_amount"], Is.EqualTo("8757.5"));
+        }
+
+        [Test]
+        public void ExecuteInteraction_NestedObject_FlattenedWithDotNotation()
+        {
+            var results = Run("{\"result\":{\"vendor\":{\"name\":\"TEEK METER INC\",\"address\":\"380 PORTFREE RD\"}}}");
+
+            Assert.That(results["vendor.name"], Is.EqualTo("TEEK METER INC"));
+            Assert.That(results["vendor.address"], Is.EqualTo("380 PORTFREE RD"));
+        }
+
+        [Test]
+        public void ExecuteInteraction_Array_FlattenedWithBracketIndexNotation()
+        {
+            var results = Run("{\"result\":{\"line_items\":[{\"description\":\"LSP62 SCANNER\",\"quantity\":1},{\"description\":\"37 PIN D-SUB37\",\"quantity\":1}]}}");
+
+            Assert.That(results["line_items[0].description"], Is.EqualTo("LSP62 SCANNER"));
+            Assert.That(results["line_items[0].quantity"], Is.EqualTo("1"));
+            Assert.That(results["line_items[1].description"], Is.EqualTo("37 PIN D-SUB37"));
+        }
+
+        [Test]
+        public void ExecuteInteraction_LowercaseResultKey_IsRecognized()
+        {
+            var results = Run("{\"result\":{\"invoice_number\":\"INV-001\"}}");
+
+            Assert.That(results.ContainsKey("invoice_number"), Is.True);
+        }
+
+        [Test]
+        public void ExecuteInteraction_UppercaseResultsKeyFallback_IsRecognized()
+        {
+            var results = Run("{\"Results\":{\"invoice_number\":\"INV-001\"}}");
+
+            Assert.That(results.ContainsKey("invoice_number"), Is.True);
+        }
     }
 }
