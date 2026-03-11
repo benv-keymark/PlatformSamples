@@ -9,6 +9,7 @@ using STG.Common.DTO;
 using STG.RT.API.Document;
 using STG.RT.API.Document.Factories;
 using VertesiaActivity.Settings;
+using System.Text.Json.Nodes;
 
 namespace VertesiaActivity.Tests
 {
@@ -282,10 +283,10 @@ namespace VertesiaActivity.Tests
             return new VertesiaUploader(new HttpClient(handler));
         }
 
-        private static Dictionary<string, string> Run(string json)
+        private static Dictionary<string, string> Run(string json, IDictionary<string, string> additionalParameters = null)
         {
             var activity = CreateActivity(json);
-            return activity.ExecuteInteraction("test-jwt", "https://api.vertesia.io", "interaction-id");
+            return activity.ExecuteInteraction("test-jwt", "https://api.vertesia.io", "interaction-id", "object-123", additionalParameters);
         }
 
         [Test]
@@ -330,6 +331,99 @@ namespace VertesiaActivity.Tests
             var results = Run("{\"Results\":{\"invoice_number\":\"INV-001\"}}");
 
             Assert.That(results.ContainsKey("invoice_number"), Is.True);
+        }
+    }
+
+    [TestFixture]
+    public class VertesiaUploaderAdditionalParametersTests
+    {
+        private static (VertesiaUploader activity, MockHttpMessageHandler handler) CreateActivity(string interactionResponseJson)
+        {
+            var handler = new MockHttpMessageHandler();
+            handler.Enqueue(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(interactionResponseJson, Encoding.UTF8, "application/json")
+            });
+            return (new VertesiaUploader(new HttpClient(handler)), handler);
+        }
+
+        [Test]
+        public void ExecuteInteraction_WithoutAdditionalParameters_BodyContainsOnlyDocument()
+        {
+            string capturedBody = null;
+            var handler = new CapturingHttpMessageHandler(req =>
+            {
+                capturedBody = req.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"result\":{}}", Encoding.UTF8, "application/json")
+                };
+            });
+
+            var activity = new VertesiaUploader(new HttpClient(handler));
+            activity.ExecuteInteraction("jwt", "https://api.vertesia.io", "interaction-id", "object-abc");
+
+            var body = JsonNode.Parse(capturedBody);
+            Assert.That(body["data"]["document"].GetValue<string>(), Is.EqualTo("store:object-abc"));
+            Assert.That(body["data"].AsObject().Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ExecuteInteraction_WithAdditionalParameters_BodyContainsExtraFields()
+        {
+            string capturedBody = null;
+            var handler = new CapturingHttpMessageHandler(req =>
+            {
+                capturedBody = req.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"result\":{}}", Encoding.UTF8, "application/json")
+                };
+            });
+
+            var activity = new VertesiaUploader(new HttpClient(handler));
+            var extra = new Dictionary<string, string>
+            {
+                ["polines"] = "store:699cabfd64a30465dd8f87a7",
+                ["region"] = "us-west"
+            };
+
+            activity.ExecuteInteraction("jwt", "https://api.vertesia.io", "interaction-id", "object-abc", extra);
+
+            var body = JsonNode.Parse(capturedBody);
+            Assert.That(body["data"]["document"].GetValue<string>(), Is.EqualTo("store:object-abc"));
+            Assert.That(body["data"]["polines"].GetValue<string>(), Is.EqualTo("store:699cabfd64a30465dd8f87a7"));
+            Assert.That(body["data"]["region"].GetValue<string>(), Is.EqualTo("us-west"));
+            Assert.That(body["data"].AsObject().Count, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void ExecuteInteraction_NullAdditionalParameters_BodyContainsOnlyDocument()
+        {
+            string capturedBody = null;
+            var handler = new CapturingHttpMessageHandler(req =>
+            {
+                capturedBody = req.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("{\"result\":{}}", Encoding.UTF8, "application/json")
+                };
+            });
+
+            var activity = new VertesiaUploader(new HttpClient(handler));
+            activity.ExecuteInteraction("jwt", "https://api.vertesia.io", "interaction-id", "object-abc", null);
+
+            var body = JsonNode.Parse(capturedBody);
+            Assert.That(body["data"]["document"].GetValue<string>(), Is.EqualTo("store:object-abc"));
+            Assert.That(body["data"].AsObject().Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Settings_DefaultConstructor_InitializesAdditionalParameters()
+        {
+            var settings = new VertesiaUploaderSettings();
+            Assert.That(settings.AdditionalParameters, Is.Not.Null);
+            Assert.That(settings.AdditionalParameters.Count, Is.EqualTo(0));
         }
     }
 }

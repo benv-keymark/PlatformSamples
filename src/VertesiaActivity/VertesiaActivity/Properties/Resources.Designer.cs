@@ -125,5 +125,33 @@ namespace VertesiaActivity.Properties {
                 return ResourceManager.GetString("VertesiaUploaderSettings_ResultMapping_Description", resourceCulture);
             }
         }
+
+        /// <summary>Table Mapping</summary>
+        public static string VertesiaUploaderSettings_TableMapping_Name {
+            get {
+                return ResourceManager.GetString("VertesiaUploaderSettings_TableMapping_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>Maps array fields from the interaction result to table rows on the child document.</summary>
+        public static string VertesiaUploaderSettings_TableMapping_Description {
+            get {
+                return ResourceManager.GetString("VertesiaUploaderSettings_TableMapping_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>Additional Parameters</summary>
+        public static string VertesiaUploaderSettings_AdditionalParameters_Name {
+            get {
+                return ResourceManager.GetString("VertesiaUploaderSettings_AdditionalParameters_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>Additional key/value pairs merged into the interaction request body's "data" object.</summary>
+        public static string VertesiaUploaderSettings_AdditionalParameters_Description {
+            get {
+                return ResourceManager.GetString("VertesiaUploaderSettings_AdditionalParameters_Description", resourceCulture);
+            }
+        }
     }
 }

@@ -94,4 +94,18 @@
     <value>Maps fields from the interaction Results response to custom value names on the child document. Key: field name in Results JSON. Value: custom value name to set on the document.</value>
   </data>
 
+  <data name="VertesiaUploaderSettings_TableMapping_Name" xml:space="preserve">
+    <value>Table Mapping</value>
+  </data>
+  <data name="VertesiaUploaderSettings_TableMapping_Description" xml:space="preserve">
+    <value>Maps array fields from the interaction result to table rows on the child document. Key: "array_prefix.field_name" (e.g. "line_items.description"). Value: "TableName.ColumnName" (e.g. "LineItems.Description"). All entries with the same array prefix populate one table, one row per array element.</value>
+  </data>
+
+  <data name="VertesiaUploaderSettings_AdditionalParameters_Name" xml:space="preserve">
+    <value>Additional Parameters</value>
+  </data>
+  <data name="VertesiaUploaderSettings_AdditionalParameters_Description" xml:space="preserve">
+    <value>Additional key/value pairs merged into the interaction request body's "data" object alongside the auto-populated "document" field. Key: property name (e.g. "polines"). Value: property value (e.g. "store:699cabfd64a30465dd8f87a7").</value>
+  </data>
+
 </root>
